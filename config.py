@@ -8,7 +8,7 @@ class Config:
     
     #训练器 
     def trainer(self, device="cpu"):
-        from trainers.train import train
+        from trainers.is_merged_train import train
         return train(self, device=device)
     
     # 训练参数

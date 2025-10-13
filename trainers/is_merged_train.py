@@ -8,7 +8,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
-from models.model import FeedforwardNN
+from models.is_merged_model import FeedforwardNN
 from utils.utils import plot_loss, evaluate
 
 def train(cfg, device="cpu"):
