@@ -58,7 +58,7 @@ def train(cfg, device="cpu"):
     acc, prec, rec, f1 = evaluate(model, test_loader, device="cpu")
 
     # 5. 保存结果
-    plot_loss(train_losses, os.path.join(cfg.output_dir, "loss_curve.png"))
-    torch.save(model.state_dict(), os.path.join(cfg.output_dir, "model.pth"))
+    plot_loss(train_losses, os.path.join(cfg.output_dir, "is_merged_loss_curve.png"))
+    torch.save(model.state_dict(), os.path.join(cfg.output_dir, "is_merged_model.pth"))
 
     return model, acc

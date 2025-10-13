@@ -18,4 +18,4 @@ class Config:
     random_state = 42
 
     # 输出目录
-    output_dir = "outputs/"
+    output_dir = "outputs/is_merged"
