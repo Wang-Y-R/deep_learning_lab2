@@ -2,8 +2,10 @@
 
 class Config:
     # 数据集
-    train_path = "data/tensorflow/train.csv"
-    test_path = 'data/tensorflow/test.csv'  
+    train_data_name = "django"
+    test_data_name = "django"
+    train_path = "data/" + train_data_name +"/train.csv"
+    test_path = "data/" +test_data_name + "/test.csv"  
     label_column = "merged"   # "预测目标列"
     
     #训练器 
@@ -19,3 +21,6 @@ class Config:
 
     # 输出目录
     output_dir = "outputs/is_merged"
+    loss_curve_name = "train_by_" + train_data_name + "_loss_curve"
+    output_model_name = "train_by_" + train_data_name + "_model"
+    output_result_name = "test_by_" + test_data_name + "_result"

@@ -9,21 +9,82 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 from models.is_merged_model import FeedforwardNN
-from utils.utils import plot_loss, evaluate
+from utils.utils import plot_loss
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, confusion_matrix
+
+def evaluate(model, test_loader, device="cpu"):
+    model.eval()
+    y_true, y_pred = [], []
+
+    with torch.no_grad():
+        for X, y in test_loader:
+            X, y = X.to(device), y.to(device)
+            outputs = model(X).squeeze()
+            preds = (outputs >= 0.5).int()
+            y_true.extend(y.cpu().tolist())
+            y_pred.extend(preds.cpu().tolist())
+
+    # 指标
+    acc = accuracy_score(y_true, y_pred)
+    prec = precision_score(y_true, y_pred, zero_division=0)
+    rec = recall_score(y_true, y_pred, zero_division=0)
+    f1 = f1_score(y_true, y_pred, zero_division=0)
+
+    print("=== Evaluation Results ===")
+    print(f"Accuracy : {acc:.4f}")
+    print(f"Precision: {prec:.4f}")
+    print(f"Recall   : {rec:.4f}")
+    print(f"F1-score : {f1:.4f}")
+    print("\nClassification Report:")
+    print(classification_report(y_true, y_pred, digits=4))
+
+    print("Confusion Matrix:")
+    print(confusion_matrix(y_true, y_pred))
+
+    return acc, prec, rec, f1
+
+# utils/utils.py
+import matplotlib.pyplot as plt
+
+def plot_metrics(metrics_dict, save_path):
+    """
+    metrics_dict: dict, {"Accuracy": acc, "Precision": prec, ...}
+    save_path: str, 保存路径
+    """
+    names = list(metrics_dict.keys())
+    values = list(metrics_dict.values())
+
+    plt.figure(figsize=(6,4))
+    plt.bar(names, values, color=['skyblue', 'orange', 'green', 'red'])
+    plt.ylim(0, 1)
+    for i, v in enumerate(values):
+        plt.text(i, v + 0.02, f"{v:.2f}", ha='center', fontweight='bold')
+    plt.title("Evaluation Metrics")
+    plt.tight_layout()
+    plt.savefig(save_path)
+    plt.close()
+
 
 def train(cfg, device="cpu"):
     # 1. 加载数据
     train_set = pd.read_csv(cfg.train_path)
     test_set = pd.read_csv(cfg.test_path)
-    X_train = train_set.drop(columns=[cfg.label_column,"pr_id","created_at","pr_number","time_to_close"]).values
-    X_test = test_set.drop(columns=[cfg.label_column,"pr_id","created_at","pr_number","time_to_close"]).values
+    
+    X_train = train_set.drop(columns=[cfg.label_column])
+    X_test  = test_set.drop(columns=[cfg.label_column])
     y_train = train_set[cfg.label_column].values
     y_test = test_set[cfg.label_column].values
 
-    X_train = torch.tensor(X_train, dtype=torch.float32)
-    y_train = torch.tensor(y_train, dtype=torch.float32).unsqueeze(1)
-    X_test = torch.tensor(X_test, dtype=torch.float32)
-    y_test = torch.tensor(y_test, dtype=torch.float32).unsqueeze(1)
+    #处理bool类型
+    bool_cols = X_train.select_dtypes(include=['bool']).columns
+    X_train[bool_cols] = X_train[bool_cols].astype(float)
+    X_test[bool_cols]  = X_test[bool_cols].astype(float)
+
+    # 将 DataFrame 转 numpy 再转 tensor
+    X_train = torch.tensor(X_train.values, dtype=torch.float32)
+    X_test  = torch.tensor(X_test.values, dtype=torch.float32)
+    y_train = torch.tensor(train_set[cfg.label_column].astype(float).values, dtype=torch.float32).unsqueeze(1)
+    y_test  = torch.tensor(test_set[cfg.label_column].astype(float).values, dtype=torch.float32).unsqueeze(1)
 
     train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=cfg.batch_size, shuffle=True)
     test_loader = DataLoader(TensorDataset(X_test, y_test), batch_size=cfg.batch_size, shuffle=False)
@@ -58,7 +119,11 @@ def train(cfg, device="cpu"):
     acc, prec, rec, f1 = evaluate(model, test_loader, device="cpu")
 
     # 5. 保存结果
-    plot_loss(train_losses, os.path.join(cfg.output_dir, "is_merged_loss_curve.png"))
-    torch.save(model.state_dict(), os.path.join(cfg.output_dir, "is_merged_model.pth"))
+    plot_loss(train_losses, os.path.join(cfg.output_dir, cfg.loss_curve_name + ".png"))
+    torch.save(model.state_dict(), os.path.join(cfg.output_dir, cfg.output_model_name + ".pth"))
+
+    # 保存指标图
+    metrics = {"Accuracy": acc, "Precision": prec, "Recall": rec, "F1-score": f1}
+    plot_metrics(metrics, os.path.join(cfg.output_dir, cfg.output_result_name + ".png"))
 
     return model, acc
