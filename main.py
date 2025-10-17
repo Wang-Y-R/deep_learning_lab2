@@ -7,5 +7,5 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    model, acc = cfg.trainer(device = device)
+    cfg.trainer(device = device)
     print("Training finished. Model saved to outputs/")

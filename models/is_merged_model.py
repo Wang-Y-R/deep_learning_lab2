@@ -28,7 +28,6 @@ class FeedforwardNN(nn.Module):
             nn.Dropout(0.3),
             
             nn.Linear(hidden_dim3, 1),
-            nn.Sigmoid()
         )
 
 
