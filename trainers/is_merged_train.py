@@ -75,11 +75,6 @@ def train(cfg, device="cpu"):
     y_train = train_set[cfg.label_column].values
     y_test = test_set[cfg.label_column].values
 
-    #处理bool类型
-    bool_cols = X_train.select_dtypes(include=['bool']).columns
-    X_train[bool_cols] = X_train[bool_cols].astype(float)
-    X_test[bool_cols]  = X_test[bool_cols].astype(float)
-
     # 将 DataFrame 转 numpy 再转 tensor
     X_train = torch.tensor(X_train.values, dtype=torch.float32)
     X_test  = torch.tensor(X_test.values, dtype=torch.float32)
