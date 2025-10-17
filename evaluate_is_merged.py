@@ -1,15 +1,13 @@
 # trainers/train.py
 import os
 import torch
-import torch.nn as nn
-import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
-
 from models.is_merged_model import FeedforwardNN
-from utils.utils import plot_loss
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, confusion_matrix
+from config import Config
+
 
 def evaluate(model, test_loader, device="cpu"):
     model.eval()
@@ -49,7 +47,6 @@ def plot_metrics(metrics_dict, save_path):
     """
     names = list(metrics_dict.keys())
     values = list(metrics_dict.values())
-
     plt.figure(figsize=(6,4))
     plt.bar(names, values, color=['skyblue', 'orange', 'green', 'red'])
     plt.ylim(0, 1)
@@ -62,78 +59,48 @@ def plot_metrics(metrics_dict, save_path):
 
 
 
-def train(cfg, device="cpu"):
-    # === 1. 加载数据 ===
+# === 1. 加载数据 ===
+cfg = Config()
+test_set = pd.read_csv(cfg.test_path)
+
+# evaluate_model_path = "outputs/train/is_merged/" + train_data_name + "_to_" + test_data_name + "/train_by_" + train_data_name + "_model.pth"
+# evaluate_data_paths = ["data/" + name + "/test.csv" for name in evaluate_datas_name]
+# evaluate_output_dir = [f"outputs/evaluate/is_merged/{train_data_name}_to_{name}" for name in evaluate_datas_name ]
+
+for name,data_path, output_path in zip( cfg.evaluate_datas_name ,cfg.evaluate_data_paths, cfg.evaluate_output_dir):
+    model_path = cfg.evaluate_model_path
+    print(f"Evaluating model: {model_path} on data: {data_path}, results will be saved to: {output_path}")
     train_set = pd.read_csv(cfg.train_path)
-    test_set = pd.read_csv(cfg.test_path)
+    test_set = pd.read_csv(data_path)
 
     X_train = train_set.drop(columns=[cfg.label_column])
+
     X_test = test_set.drop(columns=[cfg.label_column])
-    y_train = train_set[cfg.label_column]
     y_test = test_set[cfg.label_column]
 
     # === 2. 特征标准化 ===
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
+    
 
     # === 3. 转 tensor ===
-    X_train = torch.tensor(X_train, dtype=torch.float32)
     X_test = torch.tensor(X_test, dtype=torch.float32)
-    y_train = torch.tensor(y_train.values, dtype=torch.float32).unsqueeze(1)
     y_test = torch.tensor(y_test.values, dtype=torch.float32).unsqueeze(1)
 
-    train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=cfg.batch_size, shuffle=True)
+    # === 4. 模型、损失函数、优化器 ===
     test_loader = DataLoader(TensorDataset(X_test, y_test), batch_size=cfg.batch_size, shuffle=False)
 
-    # === 4. 定义模型 ===
-    model = FeedforwardNN(input_dim=X_train.shape[1]).to(device)
-
-    # 若类别不平衡，可设置 pos_weight
-    pos_weight = torch.tensor([(y_train == 0).sum() / (y_train == 1).sum()]).to(device)
-    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
-
-    optimizer = optim.Adam(model.parameters(), lr=cfg.lr)
-
-    # === 5. 训练 ===
-    os.makedirs(cfg.train_output_dir, exist_ok=True)
-    train_losses = []
-
-    for epoch in range(cfg.epochs):
-        model.train()
-        total_loss = 0
-
-        for batch_X, batch_y in train_loader:
-            batch_X, batch_y = batch_X.to(device), batch_y.to(device)
-
-            outputs = model(batch_X)
-            loss = criterion(outputs, batch_y)
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            total_loss += loss.item()
-
-        avg_loss = total_loss / len(train_loader)
-        train_losses.append(avg_loss)
-
-        # === 每轮结束后，查看模型预测比例 ===
-        model.eval()
-        with torch.no_grad():
-            probs = torch.sigmoid(model(X_train.to(device))).squeeze()
-            preds = (probs >= 0.5).int()
-            ratio_0 = (preds == 0).sum().item() / len(preds)
-            ratio_1 = (preds == 1).sum().item() / len(preds)
-        print(f"Epoch [{epoch+1}/{cfg.epochs}], Loss: {avg_loss:.4f} | Predicted ratio → 0类: {ratio_0:.2f}, 1类: {ratio_1:.2f}")
+    input_dim = X_test.shape[1]
+    model = FeedforwardNN(input_dim)
+    model.load_state_dict(torch.load(model_path, map_location="cpu"))
+    model.eval()
 
     # === 6. 评估 ===
-    acc, prec, rec, f1 = evaluate(model, test_loader, device=device)
+    acc, prec, rec, f1 = evaluate(model, test_loader, device="cpu")
 
     # === 7. 保存结果 ===
-    plot_loss(train_losses, os.path.join(cfg.train_output_dir, cfg.loss_curve_name + ".png"))
-    torch.save(model.state_dict(), os.path.join(cfg.train_output_dir, cfg.output_model_name + ".pth"))
-
     metrics = {"Accuracy": acc, "Precision": prec, "Recall": rec, "F1-score": f1}
-    plot_metrics(metrics, os.path.join(cfg.train_output_dir, cfg.output_result_name + ".png"))
-
-    return model, acc
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+    plot_metrics(metrics, os.path.join(output_path,"result.png"))
