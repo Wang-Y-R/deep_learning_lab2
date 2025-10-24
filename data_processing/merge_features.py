@@ -6,7 +6,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 def merge_project_files(features_file, info_file, output_dir):
     """
-    合并单个项目的 PR_features 和 PR_info 文件
+    合并单个项目的 PR_features 和 PR_info 文件，并计算合并时间
     """
     try:
         # 提取项目名
@@ -21,16 +21,13 @@ def merge_project_files(features_file, info_file, output_dir):
         print(f"PR_info 形状: {info.shape}")
 
         # 定义需要从info表中提取的列
-        info_cols_to_add = ["created_at", "merged"]
+        info_cols_to_add = ["created_at", "merged", "merged_at"]
 
         # 检查必要的列是否存在
         missing_cols = [col for col in info_cols_to_add if col not in info.columns]
         if missing_cols:
-            print(f"PR_info 中缺少列: {missing_cols}")
-            # 尝试使用其他可能的列名
-            if 'merged_at' in info.columns and 'merged' not in info.columns:
-                info_cols_to_add = ["created_at", "merged_at"]
-                print(f"使用 merged_at 替代 merged")
+            print(f"PR_info 中缺少必要的列: {missing_cols}")
+            return None
 
         # 合并
         merged = pd.merge(
@@ -43,12 +40,17 @@ def merge_project_files(features_file, info_file, output_dir):
         print(f"   合并后形状: {merged.shape}")
 
         # 转换时间类型并排序
-        if "created_at" in merged.columns:
+        if "created_at" in merged.columns and "merged_at" in merged.columns:
             merged["created_at"] = pd.to_datetime(merged["created_at"], errors='coerce')
+            merged["merged_at"] = pd.to_datetime(merged["merged_at"], errors='coerce')
+
+            # 计算合并时间（小时）
+            merged["time_to_close"] = (merged["merged_at"] - merged["created_at"]).dt.total_seconds()
+
             merged = merged.sort_values(by="created_at", ascending=True)
 
-        # 丢掉 created_at 和 embedding 列
-        cols_to_drop = ["created_at"]
+        # 丢掉 created_at 和 merged_at 和 embedding 列
+        cols_to_drop = ["created_at", "merged_at"]
         embedding_cols = ["title_embedding", "body_embedding", "comment_embedding",
                           "subject_embedding", "message_embedding"]
 
@@ -77,10 +79,7 @@ def merge_project_files(features_file, info_file, output_dir):
         numeric_cols = merged.select_dtypes(include=['int64', 'float64']).columns
 
         # 排除不需要归一化的列
-        exclude_cols = ['number', 'merged']
-        if 'merged_at' in merged.columns:
-            exclude_cols.append('merged_at')
-
+        exclude_cols = ['number', 'merged', 'time_to_close']
         numeric_cols_to_scale = [col for col in numeric_cols if col not in exclude_cols]
 
         if len(numeric_cols_to_scale) > 0:
@@ -128,7 +127,7 @@ def find_matching_project_files(folder_path):
 
 def main():
     # 设置路径
-    input_folder = r"E:\codes\MachineLearning\Lab2\all_features\renamed_features"
+    input_folder = r"E:\codes\MachineLearning\Lab2\all_features\renamed_features\pre_merge"
     output_folder = os.path.join(input_folder, "merged_datasets")
 
     # 创建输出文件夹

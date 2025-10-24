@@ -98,7 +98,7 @@ def clean_dataframe_gentle(df: pd.DataFrame, schema_config: dict) -> pd.DataFram
                     df_clean[col] = df_clean[col].fillna(df_clean[col].median())
 
     # 只保留 schema_config 中存在的列
-    available_cols = [col for col in schema_config.keys() if col in df_clean.columns]
+    available_cols = [col for col in df_clean.columns]
 
     return df_clean[available_cols]
 
