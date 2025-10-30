@@ -31,3 +31,17 @@ class Config:
     evaluate_model_path = "outputs/train/is_merged/" + train_data_name + "_to_" + test_data_name + "/train_by_" + train_data_name + "_model.pth"
     evaluate_data_paths = ["data/" + name + "/test.csv" for name in evaluate_datas_name]
     evaluate_output_dir = [f"outputs/evaluate/is_merged/{train_data_name}_to_{name}" for name in evaluate_datas_name ]
+
+class PredictConfig:
+    # 支持灵活配置
+    train_data_names = ["django", "opencv"]
+    label_column = "time_to_close"            # 预测目标
+    batch_size = 64
+    lr = 1e-3
+    epochs = 30
+    random_state = 42
+
+    # 支持批量评估
+    evaluate_datas_name = ["moby", "react", "salt", "scikit-learn"]
+    # 下面这些属性在批量训练/评估时由训练器和评估器动态生成
+    # train_path, test_path, train_output_dir, output_model_name, dataset_name, evaluate_model_path, evaluate_data_paths, evaluate_output_dir
