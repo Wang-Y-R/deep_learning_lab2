@@ -45,7 +45,10 @@ def merge_project_files(features_file, info_file, output_dir):
             merged["merged_at"] = pd.to_datetime(merged["merged_at"], errors='coerce')
 
             # 计算合并时间（小时）
-            merged["time_to_close"] = (merged["merged_at"] - merged["created_at"]).dt.total_seconds()
+            merged["time_to_close"] = (merged["merged_at"] - merged["created_at"]).dt.total_seconds() / 3600
+
+            # 将空值填充为0
+            merged["time_to_close"] = merged["time_to_close"].fillna(0)
 
             merged = merged.sort_values(by="created_at", ascending=True)
 
