@@ -45,3 +45,33 @@ class PredictConfig:
     evaluate_datas_name = ["moby", "react", "salt", "scikit-learn"]
     # 下面这些属性在批量训练/评估时由训练器和评估器动态生成
     # train_path, test_path, train_output_dir, output_model_name, dataset_name, evaluate_model_path, evaluate_data_paths, evaluate_output_dir
+
+class MultiTaskConfig:
+    # ========= 数据设置 =========
+    train_data_names = ["django", "opencv"]
+    label_columns = ["time_to_close", "merged"]  # 两个任务标签
+
+    # ========= 模型训练参数 =========
+    batch_size = 64
+    lr = 1e-3
+    epochs = 30
+    random_state = 42
+
+    # ========= 训练器入口 =========
+    # 对应 trainers/multitask_train.py 中的 train() 函数
+    def trainer(self, device="cpu"):
+        from trainers.multitask_train import train
+        return train(self, device=device)
+
+    # ========= 输出与模型保存 =========
+    # 每个仓库都会单独保存训练结果
+    def get_paths(self, name):
+        base = f"data/{name}/"
+        paths = {
+            "train_path": base + "train.csv",
+            "test_path": base + "test.csv",
+            "output_dir": f"outputs/train/multitask/{name}",
+            "output_model": f"outputs/train/multitask/{name}/model.pth",
+            "output_result": f"outputs/train/multitask/{name}/result.csv"
+        }
+        return paths
